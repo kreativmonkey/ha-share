@@ -1,0 +1,276 @@
+blueprint:
+  name: Taktreduzierung Klimaanlage
+  description: >
+    Dieses Blueprint basiert auf der Diskussion im [Akkudoktor Forum](https://akkudoktor.net/) zum Thema
+    [Taktvermeidung bei LLWP](https://akkudoktor.net/t/taktvermeidung-bei-llwp).
+  domain: automation
+
+  input:
+    ac_device:
+      name: Climate-Gerät
+      description: "Wähle das zu steuernde Klimagerät."
+      selector:
+        entity:
+          filter:
+            - domain: climate
+
+    temp_section:
+      name: Temperatur Konfiguration
+      icon: mdi:thermometer
+      collapsed: true
+      input:
+        room_temp:
+          name: Raumtemperatur
+          description: "Einfügen eines Temperaturfühlers für den Raum (aktuell nicht verwendet)."
+          default: []
+          selector:
+            entity:
+              multiple: false
+
+        target_temp:
+          name: Solltemperatur
+          description: "Stelle eine gewünschte Zieltemperatur für den Raum ein. Dies kann auch über einen Sensor realisiert werden."
+          default: 21
+          selector:
+            number:
+              min: 16
+              max: 30
+              step: 0.5
+              mode: box
+              unit_of_measurement: "°C"
+
+        target_temp_control_entity:
+          name: Solltemperaturregler
+          description: "[Optional] Einstellen der Mindesttemperatur für das Klimagerät."
+          default: []
+          selector:
+            entity:
+              filter:
+                - domain: input_number
+              multiple: false
+
+        internal_min_temp:
+          name: Interne minimale Temperatur
+          description: "Dieser Wert wird eingestellt "
+          default: 20
+          selector:
+            number:
+              min: 5
+              max: 30
+              step: 0.5
+              mode: box
+              unit_of_measurement: "°C"
+
+        internal_max_temp:
+          name: Interne maximale Temperatur
+          description: "Überschreitet die Ist-Temperatur diesen Wert, wird die Klimaanlage ausgeschaltet."
+          default: 25
+          selector:
+            number:
+              min: 10
+              max: 60
+              step: 0.5
+              mode: box
+              unit_of_measurement: "°C"
+
+    option_section:
+      name: Regelungs Option
+      icon: mdi:cog
+      collapsed: true
+      input:
+        enable_ac_turn_off:
+          name: Schalte AC Ein/Aus
+          description: >
+            Es kann sinnvoll sein das Klimagerät beim Erreichen der Zieltemperatur nicht aus zu schalten sondern die Temperatur 
+            zu Reduzieren. Um Schaltvorgänge zu verringern ist dies der Default, soll das Gerät ein oder aus geschaltet werden,
+            muss diese Option aktiviert werden.
+          default: false
+          selector:
+            boolean:
+
+        ac_idle_temp:
+          name: Abschalttemperatur AC
+          description: >
+            Die Temperatur die für den Standby eingestellt werden soll wenn das Gerät nicht Ein/Aus geschaltet werden soll.
+          default: 16
+          selector:
+            number:
+              min: 10
+              max: 30
+              step: 0.5
+              mode: box
+              unit_of_measurement: "°C"
+
+        enable_startup_peak:
+          name: Einschaltsenke aktivieren
+          description: >
+            Der Nutzer 3003 [berichtet im Forum](https://akkudoktor.net/t/taktvermeidung-bei-llwp/15545/69) von der Möglichkeit 
+            die Leistungsaufnahme seiner Anlage beim einschalten reduzieren zu können indem er für 2:45 min die Temperatur zunächst
+            auf 16 Grad einstellt und dann auf die Soll-Temperatur.
+          default: false
+          selector:
+            boolean:
+
+        startup_peak_time:
+          name: Einschaltsenke Verzögerung
+          description: >
+            Der Nutzer 3003 [berichtet im Forum](https://akkudoktor.net/t/taktvermeidung-bei-llwp/15545/69) von der Möglichkeit 
+            die Leistungsaufnahme seiner Anlage beim einschalten reduzieren zu können indem er für 2:45 min die Temperatur zunächst
+            auf 16 Grad einstellt und dann auf die Soll-Temperatur
+          default: 
+            minutes: 2
+            seconds: 30
+          selector:
+            duration:
+
+trigger_variables:
+  ac: !input ac_device
+  room_temp: !input room_temp
+  target_temp_control_entity: !input target_temp_control_entity
+
+
+variables:
+  version: 2025.01.1
+  ac_current_temp: '{{ state_attr(ac, "current_temperature") | float }}'
+  ac_target_temp: '{{ state_attr(ac, "temperature") | float }}'
+  ac_idle_temp: !input ac_idle_temp
+  ac_min_temp: '{{ state_attr(ac, "min_temp") | float }}'
+  ac_max_temp: '{{ state_attr(ac, "max_temp") | float }}'
+  internal_min_temp: !input internal_min_temp
+  internal_max_temp: !input internal_max_temp
+  enable_ac_turn_off: !input enable_ac_turn_off
+  enable_startup_peak: !input enable_startup_peak
+  startup_peak_time: !input startup_peak_time
+  target_temp: !input target_temp
+  target_control_temp: >-
+    {% if target_temp_control_entity != [] %}
+      {{ states(target_temp_control_entity) | float }}
+    {% else %}
+      {{ target_temp | float }}
+    {% endif %}
+  
+  setpoint_temp: >-
+    {% if states(ac) == 'heat' %}
+    {% if ac_current_temp <= target_control_temp %}
+      {{ target_control_temp }}
+    {% elif ac_current_temp >= ac_max_temp %}
+      {{ ac_max_temp }}
+    {% else %}
+      {{ ac_current_temp}}
+    {% endif %}
+    {% elif states(ac) in ('dry', 'cool') %}
+    {% if ac_current_temp >= target_control_temp %}
+      {{ target_control_temp }}
+    {% elif ac_current_temp <= ac_max_temp %}
+      {{ ac_max_temp }}
+    {% else %}
+      {{ ac_current_temp }}
+    {% endif %}
+    {% else %}
+      {{ ac_current_temp }}
+    {% endif %}
+
+mode: single
+
+trigger:
+  - trigger: state
+    entity_id: !input ac_device
+    attribute: current_temperature
+
+  - trigger: state
+    entity_id: !input ac_device
+    attribute: temperature
+
+  - trigger: state
+    entity_id: !input ac_device
+    from: "off"
+    id: "turn_on"
+
+  - trigger: state
+    entity_id: !input target_temp_control_entity
+
+action:
+  - choose:
+      # Schalte das Klimagerät in den Standby betrieb (Ausschalten oder Standby Temperatur einstellen) 
+      # wenn die gewünschte Raumtemperatur erreicht ist.
+      - alias: Klima Standby
+        conditions:
+        - condition: template
+          value_template: >
+            {{ 
+              ac_current_temp | float >= internal_max_temp | float
+            }}
+        sequence:
+          - alias: "Turn off or set minimum temperature"
+            if:
+            - '{{ enable_ac_turn_off }}'
+            then:
+            - action: climate.turn_off
+              data:
+                entity_id: !input ac_device
+            else:
+            - action: climate.set_temperature
+              data:
+                entity_id: !input ac_device
+                temperature: "{{ ac_idle_temp | float }}"
+
+      # Einschalten der AC 
+      - alias: Klima Einschalten
+        conditions:
+        - condition: or
+          conditions:
+            - condition: template
+              value_template: >
+                {{ 
+                  ac_current_temp | float <= internal_min_temp | float
+                }}
+            - condition: trigger
+              alias: "Triggered from turning on AC"
+              id: "turn_on"
+        sequence:
+          - if:
+            - condition: trigger
+              alias: "Triggered from turning on AC"
+              id: "turn_on"
+            then:
+              - if:
+                - condition: state
+                  entity_id: !input ac_device
+                  state: "off"
+                then:
+                  - action: climate.turn_on
+                    data:
+                      entity_id: !input ac_device
+              - if:
+                - '{{ enable_startup_peak }}'
+                then:
+                - action: climate.set_temperature
+                  data:
+                    entity_id: !input ac_device
+                    temperature: "{{ ac_idle_temp }}"
+                - delay: "{{ startup_peak_time }}"
+          - action: climate.set_temperature
+            data:
+              entity_id: !input ac_device
+              temperature: "{{ setpoint_temp }}"
+
+      # Standardfall -> Klimaanlage an und Solltemperatur auf Isttemperatur
+      - alias: Klima Nachführen
+        conditions:
+          - condition: and
+            conditions:
+              - condition: template
+                value_template: >
+                  {{ ac_current_temp > internal_min_temp and ac_current_temp < internal_max_temp }}
+              - condition: template
+                value_template: >-
+                  {% if states(ac) in ('heat','cool','dry') %}
+                    true
+                  {% else %}
+                    false
+                  {% endif %}
+        sequence:
+          - action: climate.set_temperature
+            data:
+              entity_id: !input ac_device
+              temperature: "{{ setpoint_temp }}"
