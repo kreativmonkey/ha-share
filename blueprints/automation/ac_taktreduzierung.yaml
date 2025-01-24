@@ -78,15 +78,18 @@ blueprint:
       icon: mdi:cog
       collapsed: true
       input:
-        enable_ac_turn_off:
-          name: Schalte AC Ein/Aus
+        heat_limit_mode:
+          name: Regelungsmodus
           description: >
-            Es kann sinnvoll sein das Klimagerät beim Erreichen der Zieltemperatur nicht aus zu schalten sondern die Temperatur 
-            zu Reduzieren. Um Schaltvorgänge zu verringern ist dies der Default, soll das Gerät ein oder aus geschaltet werden,
-            muss diese Option aktiviert werden.
-          default: false
+            Hier kann gewählt werden was die Regelung beim Erreichen der Minimal/Maximalen
+            Temperaturwerte unternehmen soll.
           selector:
-            boolean:
+            select:
+              mode: dropdown
+              options:
+                - Hovering
+                - Standby
+                - Turn Off/On
 
         ac_idle_temp:
           name: Abschalttemperatur AC
@@ -130,7 +133,7 @@ trigger_variables:
 
 
 variables:
-  version: 2025.01.1
+  version: 2025.01.2
   ac_current_temp: '{{ state_attr(ac, "current_temperature") | float }}'
   ac_target_temp: '{{ state_attr(ac, "temperature") | float }}'
   ac_idle_temp: !input ac_idle_temp
@@ -138,7 +141,10 @@ variables:
   ac_max_temp: '{{ state_attr(ac, "max_temp") | float }}'
   internal_min_temp: !input internal_min_temp
   internal_max_temp: !input internal_max_temp
-  enable_ac_turn_off: !input enable_ac_turn_off
+  heat_limit_mode: !input heat_limit_mode
+  enable_ac_turn_off: '{{ true if heat_limit_mode == "Turn Off/On" else false }}'
+  enable_ac_hovering: '{{ true if heat_limit_mode == "Hovering" else false }}'
+  enable_ac_standby: '{{ true if heat_limit_mode == "Standby" else false}}'
   enable_startup_peak: !input enable_startup_peak
   startup_peak_time: !input startup_peak_time
   target_temp: !input target_temp
@@ -201,18 +207,26 @@ action:
               ac_current_temp | float >= internal_max_temp | float
             }}
         sequence:
-          - alias: "Turn off or set minimum temperature"
-            if:
+          - if:
             - '{{ enable_ac_turn_off }}'
             then:
             - action: climate.turn_off
               data:
                 entity_id: !input ac_device
-            else:
+          - if:
+            - '{{ enable_ac_standby}}'
+            then:
             - action: climate.set_temperature
               data:
                 entity_id: !input ac_device
                 temperature: "{{ ac_idle_temp | float }}"
+          - if:
+            - '{{ enable_ac_hovering }}'
+            then:
+            - action: climate.set_temperature
+              data:
+                entity_id: !input ac_device
+                temperature: "{{ internal_max_temp }}"
 
       # Einschalten der AC 
       - alias: Klima Einschalten
