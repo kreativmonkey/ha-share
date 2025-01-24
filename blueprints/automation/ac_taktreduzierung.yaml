@@ -157,7 +157,9 @@ variables:
   
   setpoint_temp: >-
     {% if states(ac) == 'heat' %}
-    {% if ac_current_temp <= target_control_temp %}
+    {% if ac_target_temp >= internal_max_temp %}
+      {{ internal_max_temp }}
+    {% elif ac_current_temp <= target_control_temp %}
       {{ target_control_temp }}
     {% elif ac_current_temp >= ac_max_temp %}
       {{ ac_max_temp }}
