@@ -83,6 +83,7 @@ blueprint:
           description: >
             Hier kann gewählt werden was die Regelung beim Erreichen der Minimal/Maximalen
             Temperaturwerte unternehmen soll.
+          default: Standby
           selector:
             select:
               mode: dropdown
@@ -133,7 +134,7 @@ trigger_variables:
 
 
 variables:
-  version: 2025.01.2
+  version: 2025.01.3
   ac_current_temp: '{{ state_attr(ac, "current_temperature") | float }}'
   ac_target_temp: '{{ state_attr(ac, "temperature") | float }}'
   ac_idle_temp: !input ac_idle_temp
