@@ -120,6 +120,10 @@ variables:
   time_down_late: !input time_down_late
   time_up_early: !input time_up_early
   time_up_late: !input time_up_late
+  time_up_early_non_workday: !input time_up_early_non_workday
+  time_up_late_non_workday: !input time_up_late_non_workday
+  time_down_early_non_workday: !input time_down_early_non_workday
+  time_down_late_non_workday: !input time_down_late_non_workday
   trigger_time_down: >-
     {{ true if now() >= today_at(time_down_early) else false}}
   trigger_time_up: >-
@@ -131,7 +135,17 @@ max_exceeded: silent
 triggers:
   - trigger: state
     entity_id: sun.sun
-
+  - trigger: template
+    value_template: >
+      {% if 
+      now() == today_at(time_down_late) or 
+      now() == today_at(time_down_early) or
+      now() == today_at(time_up_late) or
+      now() == today_at(time_up_early) %}
+        1
+      {% else %}
+        0
+      {% endif %}
 
 action:
   - choose:
