@@ -197,94 +197,95 @@ trigger:
 
 action:
   - choose:
-      # Schalte das Klimagerät in den Standby betrieb (Ausschalten oder Standby Temperatur einstellen) 
-      # wenn die gewünschte Raumtemperatur erreicht ist.
-      - alias: Klima Standby
+    # Einschalten der AC 
+    - alias: Klima Einschalten
+      conditions:
+      - condition: or
         conditions:
-        - condition: template
-          value_template: >
-            {{ 
-              ac_current_temp | float >= internal_max_temp | float
-            }}
-        sequence:
-          - if:
-            - '{{ enable_ac_turn_off }}'
-            then:
-            - action: climate.turn_off
-              data:
+          - condition: template
+            value_template: >
+              {{ 
+                ac_current_temp | float <= internal_min_temp | float
+              }}
+          - condition: trigger
+            alias: "Triggered from turning on AC"
+            id: "turn_on"
+      sequence:
+        - if:
+          - condition: trigger
+            alias: "Triggered from turning on AC"
+            id: "turn_on"
+          then:
+            - if:
+              - condition: state
                 entity_id: !input ac_device
-          - if:
-            - '{{ enable_ac_standby}}'
-            then:
-            - action: climate.set_temperature
-              data:
-                entity_id: !input ac_device
-                temperature: "{{ ac_idle_temp | float }}"
-          - if:
-            - '{{ enable_ac_hovering }}'
-            then:
-            - action: climate.set_temperature
-              data:
-                entity_id: !input ac_device
-                temperature: "{{ internal_max_temp }}"
+                state: "off"
+              then:
+                - action: climate.turn_on
+                  data:
+                    entity_id: !input ac_device
+            - if:
+              - '{{ enable_startup_peak }}'
+              then:
+              - action: climate.set_temperature
+                data:
+                  entity_id: !input ac_device
+                  temperature: "{{ ac_idle_temp }}"
+              - delay: "{{ startup_peak_time }}"
+        - action: climate.set_temperature
+          data:
+            entity_id: !input ac_device
+            temperature: "{{ setpoint_temp }}"
 
-      # Einschalten der AC 
-      - alias: Klima Einschalten
-        conditions:
-        - condition: or
+    # Schalte das Klimagerät in den Standby betrieb (Ausschalten oder Standby Temperatur einstellen) 
+    # wenn die gewünschte Raumtemperatur erreicht ist.
+    - alias: Klima Standby
+      conditions:
+      - condition: template
+        value_template: >
+          {{ 
+            ac_current_temp | float >= internal_max_temp | float
+          }}
+      sequence:
+        - if:
+          - '{{ enable_ac_turn_off }}'
+          then:
+          - action: climate.turn_off
+            data:
+              entity_id: !input ac_device
+        - if:
+          - '{{ enable_ac_standby}}'
+          then:
+          - action: climate.set_temperature
+            data:
+              entity_id: !input ac_device
+              temperature: "{{ ac_idle_temp | float }}"
+        - if:
+          - '{{ enable_ac_hovering }}'
+          then:
+          - action: climate.set_temperature
+            data:
+              entity_id: !input ac_device
+              temperature: "{{ internal_max_temp }}"
+
+    
+    # Standardfall -> Klimaanlage an und Solltemperatur auf Isttemperatur
+    - alias: Klima Nachführen
+      conditions:
+        - condition: and
           conditions:
             - condition: template
               value_template: >
-                {{ 
-                  ac_current_temp | float <= internal_min_temp | float
-                }}
-            - condition: trigger
-              alias: "Triggered from turning on AC"
-              id: "turn_on"
-        sequence:
-          - if:
-            - condition: trigger
-              alias: "Triggered from turning on AC"
-              id: "turn_on"
-            then:
-              - if:
-                - condition: state
-                  entity_id: !input ac_device
-                  state: "off"
-                then:
-                  - action: climate.turn_on
-                    data:
-                      entity_id: !input ac_device
-              - if:
-                - '{{ enable_startup_peak }}'
-                then:
-                - action: climate.set_temperature
-                  data:
-                    entity_id: !input ac_device
-                    temperature: "{{ ac_idle_temp }}"
-                - delay: "{{ startup_peak_time }}"
-          - action: climate.set_temperature
-            data:
-              entity_id: !input ac_device
-              temperature: "{{ setpoint_temp }}"
-
-      # Standardfall -> Klimaanlage an und Solltemperatur auf Isttemperatur
-      - alias: Klima Nachführen
-        conditions:
-          - condition: and
-            conditions:
-              - condition: template
-                value_template: >
-                  {{ ac_current_temp > internal_min_temp and ac_current_temp < internal_max_temp }}
-              - condition: template
-                value_template: >-
-                  {% if states(ac) in ('heat','cool','dry') %}
-                    true
-                  {% else %}
-                    false
-                  {% endif %}
-        sequence:
-          - action: climate.set_temperature
-            data:
-              entity_id: !input ac_device
-              temperature: "{{ setpoint_temp }}"
+                {{ ac_current_temp > internal_min_temp and ac_current_temp < internal_max_temp }}
+            - condition: template
+              value_template: >-
+                {% if states(ac) in ('heat','cool','dry') %}
+                  true
+                {% else %}
+                  false
+                {% endif %}
+      sequence:
+        - action: climate.set_temperature
+          data:
+            entity_id: !input ac_device
+            temperature: "{{ setpoint_temp }}"
