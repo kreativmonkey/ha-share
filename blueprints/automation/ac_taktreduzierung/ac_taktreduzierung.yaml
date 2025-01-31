@@ -146,7 +146,7 @@ trigger_variables:
 
 
 variables:
-  version: 2025.01.3
+  version: 2025.01.4
   ac_current_temp: '{{ state_attr(ac, "current_temperature") | float }}'
   ac_target_temp: '{{ state_attr(ac, "temperature") | float }}'
   ac_idle_temp: !input ac_idle_temp
@@ -161,6 +161,7 @@ variables:
   enable_startup_peak: !input enable_startup_peak
   startup_peak_time: !input startup_peak_time
   target_temp: !input target_temp
+  set_temp_offset: !input set_temp_offset
   target_control_temp: >-
     {% if target_temp_control_entity != [] %}
       {{ states(target_temp_control_entity) | float }}
@@ -177,7 +178,7 @@ variables:
     {% elif ac_current_temp >= ac_max_temp %}
       {{ ac_max_temp }}
     {% else %}
-      {{ ac_current_temp + offset | float }}
+      {{ ac_current_temp + set_temp_offset | float }}
     {% endif %}
     {% elif states(ac) in ('dry', 'cool') %}
     {% if ac_current_temp >= target_control_temp %}
@@ -185,7 +186,7 @@ variables:
     {% elif ac_current_temp <= ac_max_temp %}
       {{ ac_max_temp }}
     {% else %}
-      {{ ac_current_temp - offset | float }}
+      {{ ac_current_temp - set_temp_offset | float }}
     {% endif %}
     {% else %}
       {{ ac_current_temp }}
