@@ -178,7 +178,7 @@ variables:
     {% elif ac_current_temp >= ac_max_temp %}
       {{ ac_max_temp }}
     {% else %}
-      {{ ac_current_temp + set_temp_offset | float }}
+      {{ ac_current_temp }}
     {% endif %}
     {% elif states(ac) in ('dry', 'cool') %}
     {% if ac_current_temp >= target_control_temp %}
@@ -186,7 +186,7 @@ variables:
     {% elif ac_current_temp <= ac_max_temp %}
       {{ ac_max_temp }}
     {% else %}
-      {{ ac_current_temp - set_temp_offset | float }}
+      {{ ac_current_temp }}
     {% endif %}
     {% else %}
       {{ ac_current_temp }}
