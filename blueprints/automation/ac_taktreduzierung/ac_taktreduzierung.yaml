@@ -177,7 +177,7 @@ variables:
     {% elif ac_current_temp >= ac_max_temp %}
       {{ ac_max_temp }}
     {% else %}
-      {{ ac_current_temp + offset }}
+      {{ ac_current_temp + offset | float }}
     {% endif %}
     {% elif states(ac) in ('dry', 'cool') %}
     {% if ac_current_temp >= target_control_temp %}
@@ -185,10 +185,10 @@ variables:
     {% elif ac_current_temp <= ac_max_temp %}
       {{ ac_max_temp }}
     {% else %}
-      {{ ac_current_temp + offset }}
+      {{ ac_current_temp - offset | float }}
     {% endif %}
     {% else %}
-      {{ ac_current_temp + offset }}
+      {{ ac_current_temp }}
     {% endif %}
 
 mode: single
