@@ -1,0 +1,61 @@
+blueprint:
+  name: Simple Cover Control
+  description: >
+    Dieses Blueprint bietet eine einfach und simple steuerung von Rolläden und Jalousien.
+  domain: automation
+
+  input:
+    device:
+      name: Cover
+      description: "Select the cover to control"
+      selector:
+        entity: 
+          filter:
+            - domain: cover 
+
+trigger:
+  - trigger: state
+    entity_id:
+      - sun.sun
+    to: below_horizon
+    for:
+      minutes: 10
+
+  - trigger: state
+    entity_id:
+      - sun.sun
+    to: above_horizon
+    for:
+      minutes: 10
+
+action: 
+  - variables:
+      current_elevation: "{{ state_attr('sun.sun', 'elevation') | float }}"
+
+  - choose:
+    # Sonnenaufgang
+      - conditions: 
+          - condition: state
+            entity_id: sun.sun
+            state: above_horizon
+        sequence:
+          - action: cover.open_cover
+            metadata: {}
+            data: {}
+            target:
+              entity_id: !input device
+      
+      - conditions:
+          - condition: state
+            entity_id: sun.sun
+            state: below_horizon
+        sequence:
+          - action: cover.close_cover
+            metadata: {}
+            data: {}
+            target:
+              entity_id: !input device
+
+    
+
+    
