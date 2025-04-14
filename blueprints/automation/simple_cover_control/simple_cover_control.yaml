@@ -13,6 +13,44 @@ blueprint:
           filter:
             - domain: cover 
 
+    open_early_workday:
+      name: Workday Open Earliest
+      description: >-
+        The ealiest time at which the cover may be opened. The cover will be opened if AFTER this or sun-elevation.
+      default: 07:00:00
+      selector:
+        time: {}
+
+    open_late_workday:
+      name: Workday Open Latest
+      description: >-
+        The latest time at whiche the cover should be opened. (currently NOT IMPLEMENTED)
+      default: 09:00:00
+      selector:
+        time: {}
+
+    close_early_workday:
+      name: Workday Close Earliest
+      description: >-
+        The earliest time at which the cover may be closed.
+      default: 16:00:00
+      selector:
+        time: {}
+
+    close_late_workday:
+      name: Workday Close Latest
+      description: >-
+        The latest time at which the cover may be closed. (currently NOT IMPLEMENTED)
+      default: 20:30:00
+      selector:
+        time: {}
+
+trigger_variables:
+  time_up_early_workday: !input open_early_workday
+  time_up_late_workday: !input open_late_workday
+  time_down_early_workday: !input close_early_workday
+  time_down_late_workday: !input close_late_workday
+
 trigger:
   - trigger: state
     entity_id:
@@ -20,6 +58,22 @@ trigger:
     to: below_horizon
     for:
       minutes: 10
+    id: "close_sun"
+
+  - trigger: template
+    value_template: >-
+      {{ now() >= today_at(time_up_early_workday) }}
+    id: "time_to_open_1"
+
+  - trigger: template
+    value_template: >-
+      {{ now() <= today_at(time_down_early_workday) }}
+    id: "time_to_close_1"
+
+  - trigger: template
+    value_template: >-
+      {{ now() >= today_at(time_down_late_workday) }}
+    id: "time_to_close_2"
 
   - trigger: state
     entity_id:
@@ -27,6 +81,7 @@ trigger:
     to: above_horizon
     for:
       minutes: 10
+    id: "open_sun"
 
 action: 
   - variables:
@@ -35,9 +90,12 @@ action:
   - choose:
     # Sonnenaufgang
       - conditions: 
-          - condition: state
-            entity_id: sun.sun
-            state: above_horizon
+        - condition:
+          - and:
+            - "{{ now() >= today_at(time_up_early_workday) }}"
+            - condition: state
+              entity_id: sun.sun
+              state: above_horizon
         sequence:
           - action: cover.open_cover
             metadata: {}
@@ -46,9 +104,12 @@ action:
               entity_id: !input device
       
       - conditions:
-          - condition: state
-            entity_id: sun.sun
-            state: below_horizon
+        - condition:
+          - or:
+            - "{{ now() >= today_at(time_down_late_workday) }}"
+            - condition: state
+              entity_id: sun.sun
+              state: below_horizon
         sequence:
           - action: cover.close_cover
             metadata: {}
@@ -56,6 +117,3 @@ action:
             target:
               entity_id: !input device
 
-    
-
-    
