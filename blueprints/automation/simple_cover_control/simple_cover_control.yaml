@@ -24,7 +24,7 @@ blueprint:
     open_late_workday:
       name: Workday Open Latest
       description: >-
-        The latest time at whiche the cover should be opened. (currently NOT IMPLEMENTED)
+        The latest time at whiche the cover should be opened.
       default: 09:00:00
       selector:
         time: {}
@@ -40,7 +40,7 @@ blueprint:
     close_late_workday:
       name: Workday Close Latest
       description: >-
-        The latest time at which the cover may be closed. (currently NOT IMPLEMENTED)
+        The latest time at which the cover may be closed.
       default: 20:30:00
       selector:
         time: {}
@@ -89,13 +89,18 @@ action:
 
   - choose:
     # Sonnenaufgang
-      - conditions: 
-        - condition:
+      - conditions:
+        - or:
           - and:
             - "{{ now() >= today_at(time_up_early_workday) }}"
             - condition: state
               entity_id: sun.sun
               state: above_horizon
+          - and:
+            - "{{ now() >= today_at(time_up_late_workday )}}"
+            - condition: state
+              entity_id: sun.sun
+              state: below_horizon
         sequence:
           - action: cover.open_cover
             metadata: {}
@@ -104,9 +109,14 @@ action:
               entity_id: !input device
       
       - conditions:
-        - condition:
-          - or:
+        - or:
+          - and:
             - "{{ now() >= today_at(time_down_late_workday) }}"
+            - condition: state
+              entity_id: sun.sun
+              state: above_horizon
+          - and:
+            - "{{ now() >= today_at(time_down_early_workday) }}"
             - condition: state
               entity_id: sun.sun
               state: below_horizon
