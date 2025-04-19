@@ -93,11 +93,13 @@ action:
         - or:
           - and:
             - "{{ now() >= today_at(time_up_early_workday) }}"
+            - "{{ now() <= today_at(time_up_late_workday) }}"
             - condition: state
               entity_id: sun.sun
               state: above_horizon
           - and:
-            - "{{ now() >= today_at(time_up_late_workday )}}"
+            - "{{ now() >= today_at(time_up_late_workday) }}"
+            - "{{ now() <= today_at(time_down_early_workday) }}"
             - condition: state
               entity_id: sun.sun
               state: below_horizon
@@ -117,6 +119,7 @@ action:
               state: above_horizon
           - and:
             - "{{ now() >= today_at(time_down_early_workday) }}"
+            - "{{ now() <= today_at(time_down_late_workday) }}"
             - condition: state
               entity_id: sun.sun
               state: below_horizon
