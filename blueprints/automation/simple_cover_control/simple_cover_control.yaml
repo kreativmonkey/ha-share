@@ -1,7 +1,7 @@
 blueprint:
   name: Simple Cover Control
   description: >
-    Dieses Blueprint bietet eine einfach und simple steuerung von Rolläden und Jalousien.
+    Dieses Blueprint bietet eine einfache und simple Steuerung von Rolläden und Jalousien.
   domain: automation
 
   input:
@@ -16,16 +16,16 @@ blueprint:
     open_early_workday:
       name: Workday Open Earliest
       description: >-
-        The ealiest time at which the cover may be opened. The cover will be opened if AFTER this or sun-elevation.
-      default: 07:00:00
+        The earliest time at which the cover may be opened. The cover will be opened if AFTER this or sun-elevation.
+      default: "07:00:00"
       selector:
         time: {}
 
     open_late_workday:
       name: Workday Open Latest
       description: >-
-        The latest time at whiche the cover should be opened.
-      default: 09:00:00
+        The latest time at which the cover should be opened.
+      default: "09:00:00"
       selector:
         time: {}
 
@@ -33,7 +33,7 @@ blueprint:
       name: Workday Close Earliest
       description: >-
         The earliest time at which the cover may be closed.
-      default: 16:00:00
+      default: "16:00:00"
       selector:
         time: {}
 
@@ -41,7 +41,7 @@ blueprint:
       name: Workday Close Latest
       description: >-
         The latest time at which the cover may be closed.
-      default: 20:30:00
+      default: "20:30:00"
       selector:
         time: {}
 
@@ -60,19 +60,20 @@ trigger:
       minutes: 10
     id: "close_sun"
 
-  - trigger: template
-    value_template: >-
-      {{ now() >= today_at(time_up_early_workday) }}
+  - trigger: time
+    at: !input open_early_workday
     id: "time_to_open_1"
 
-  - trigger: template
-    value_template: >-
-      {{ now() <= today_at(time_down_early_workday) }}
+  - trigger: time
+    at: !input open_late_workday
+    id: "time_to_open_2"
+
+  - trigger: time
+    at: !input close_early_workday
     id: "time_to_close_1"
 
-  - trigger: template
-    value_template: >-
-      {{ now() >= today_at(time_down_late_workday) }}
+  - trigger: time
+    at: !input close_late_workday
     id: "time_to_close_2"
 
   - trigger: state
@@ -84,49 +85,17 @@ trigger:
     id: "open_sun"
 
 action: 
-  - variables:
-      current_elevation: "{{ state_attr('sun.sun', 'elevation') | float }}"
-
   - choose:
-    # Sonnenaufgang
       - conditions:
-        - or:
-          - and:
-            - "{{ now() >= today_at(time_up_early_workday) }}"
-            - "{{ now() <= today_at(time_up_late_workday) }}"
-            - condition: state
-              entity_id: sun.sun
-              state: above_horizon
-          - and:
-            - "{{ now() >= today_at(time_up_late_workday) }}"
-            - "{{ now() <= today_at(time_down_early_workday) }}"
-            - condition: state
-              entity_id: sun.sun
-              state: below_horizon
+          - "{{ (now() >= today_at(time_up_early_workday) and now() < today_at(time_up_late_workday) and is_state('sun.sun', 'above_horizon')) or (now() >= today_at(time_up_late_workday) and now() < today_at(time_down_early_workday)) }}"
         sequence:
           - action: cover.open_cover
-            metadata: {}
-            data: {}
             target:
               entity_id: !input device
       
       - conditions:
-        - or:
-          - and:
-            - "{{ now() >= today_at(time_down_late_workday) }}"
-            - condition: state
-              entity_id: sun.sun
-              state: above_horizon
-          - and:
-            - "{{ now() >= today_at(time_down_early_workday) }}"
-            - "{{ now() <= today_at(time_down_late_workday) }}"
-            - condition: state
-              entity_id: sun.sun
-              state: below_horizon
+          - "{{ (now() >= today_at(time_down_early_workday) and now() < today_at(time_down_late_workday) and is_state('sun.sun', 'below_horizon')) or (now() >= today_at(time_down_late_workday) or now() < today_at(time_up_early_workday)) }}"
         sequence:
           - action: cover.close_cover
-            metadata: {}
-            data: {}
             target:
               entity_id: !input device
-
